@@ -1,9 +1,7 @@
-name: Build Kazna 0.5 APK
+name: Build Kazna 0.6 APK
 on:
   push:
     branches: [ "kazna-apk-05-build" ]
-  pull_request:
-    branches: [ "main" ]
 permissions:
   contents: read
 jobs:
@@ -12,12 +10,43 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Extract source
+      - name: Extract 0.5 source
         run: |
           mkdir -p kazna
           cat kazna-src-parts/*.b64 | base64 -d > kazna-src-ci.tar.gz
           echo "cffe9d3b4a54daeafc5e110f94c255dda1f0a560fef98463ab0d017e66f5eb37  kazna-src-ci.tar.gz" | sha256sum -c -
           tar -xzf kazna-src-ci.tar.gz -C kazna
+      - name: Apply 0.6 changes
+        working-directory: kazna
+        run: |
+          cat > /tmp/patch06.py <<'PY'
+          from pathlib import Path
+          p=Path("app/build.gradle")
+          s=p.read_text()
+          s=s.replace("versionCode 5; versionName '0.5.0'","versionCode 6; versionName '0.6.0'")
+          p.write_text(s)
+          
+          p=Path("app/src/main/java/ru/kazna/app/MainActivity.java")
+          s=p.read_text()
+          old='  if(tab!=3){LinearLayout nav=row();nav.setPadding(0,dp(8),0,dp(8));String[] labels={"Мои финансы","Операции","Анализ"};for(int i=0;i<labels.length;i++){final int index=i;TextView t=text(labels[i],11,tab==i?INK:MUTED,tab==i);t.setGravity(Gravity.CENTER);t.setMinHeight(dp(52));t.setBackground(shape(tab==i?LIME:BG,16));t.setOnClickListener(v->{tab=index;maxRows=100;expenseGroup="";expenseValue="";onlyReview=false;render();});t.setFocusable(true);weight(nav,t);}add(root,nav);}'
+          new='  if(tab!=3){\n   if(tab==0){TextView quick=button("＋  Добавить операцию",true,()->edit(null));quick.setTextSize(16);quick.setContentDescription("Добавить операцию");LinearLayout.LayoutParams qp=new LinearLayout.LayoutParams(-1,dp(56));qp.setMargins(0,dp(6),0,0);root.addView(quick,qp);}\n   LinearLayout nav=row();nav.setPadding(0,dp(8),0,dp(8));String[] labels={"Мои финансы","Операции","Анализ"};for(int i=0;i<labels.length;i++){final int index=i;TextView t=text(labels[i],11,tab==i?INK:MUTED,tab==i);t.setGravity(Gravity.CENTER);t.setMinHeight(dp(52));t.setBackground(shape(tab==i?LIME:BG,16));t.setOnClickListener(v->{tab=index;maxRows=100;expenseGroup="";expenseValue="";onlyReview=false;render();});t.setFocusable(true);weight(nav,t);}add(root,nav);\n  }'
+          assert old in s
+          s=s.replace(old,new)
+          a=s.index(" void overview(){")
+          b=s.index(" String typeName(",a)
+          s=s[:a]+' void overview(){\n  heading(body,"Мои финансы");\n  String[] banks={"Т-Банк","Сбер","Альфа-Банк"};long total=0;int known=0;for(String bank:banks){Long value=bankBalance(bank);if(value!=null){total+=value;known++;}}\n  LinearLayout hero=card(body);hero.setBackground(shape(INK,24));add(hero,text("ВСЕГО НА КАРТАХ",11,0xffbdcfc3,true));gap(hero,12);add(hero,text(rub(total),38,WHITE,true));gap(hero,8);add(hero,text(known==banks.length?"Все банки учтены":"Учтено банков: "+known+" из "+banks.length,12,0xffbdcfc3,false));\n  heading(body,"Мои банки");for(String bank:banks)bankFinanceCard(body,bank);\n  Ledger current=new Ledger(entries);if(current.reviewCount>0){LinearLayout c=card(body);add(c,text("Нужно проверить: "+current.reviewCount,15,AMBER,true));gap(c,7);hint(c,"Есть операции с неизвестной категорией, переводом или возможным повтором.");gap(c,10);add(c,button("Проверить операции",false,()->{tab=1;onlyReview=true;render();}));}\n  heading(body,"Последние операции");if(entries.isEmpty())hint(body,"Операций пока нет. Добавь первую вручную или подключи автоучёт в настройках.");else{for(int i=0;i<Math.min(4,entries.size());i++)entryRow(body,entries.get(i));add(body,button("Открыть все операции",false,()->{tab=1;onlyReview=false;render();}));gap(body,12);}\n  hint(body,active()?"Автоучёт включён. Новые операции будут появляться автоматически.":"Автоучёт пока не подключён. Открой ⚙ и включи пуши банков или СМС.");gap(body,16);\n }\n boolean balanceSource(Entry e){return e.source.equals("bank_push")||e.source.equals("sms")||e.source.equals("notification")||e.source.equals("paste");}\n Long bankBalance(String bank){String key="balance_"+bank;if(prefs.contains(key))return prefs.getLong(key,0);for(Entry e:entries)if(e.bank.equals(bank)&&balanceSource(e)&&!e.raw.isEmpty()){long balance=BankParser.balance(e.raw);if(balance>=0)return balance;}return null;}\n int bankCardCount(String bank){Set<String> cards=new HashSet<>();for(Entry e:entries)if(e.bank.equals(bank)&&!e.card.isEmpty())cards.add(e.card);return cards.size();}\n void bankFinanceCard(LinearLayout p,String bank){\n  Long value=bankBalance(bank);LinearLayout c=col();c.setPadding(dp(20),dp(18),dp(20),dp(18));c.setBackground(shape(INK,24));c.setFocusable(true);c.setClickable(true);\n  LinearLayout top=row();weight(top,text(bank.toUpperCase(new Locale("ru")),11,0xffbdcfc3,true));TextView arrow=text("›",24,0xffbdcfc3,true);top.addView(arrow);add(c,top);gap(c,10);\n  add(c,text(value==null?"Баланс не указан":rub(value),value==null?23:30,WHITE,true));gap(c,7);int cards=bankCardCount(bank);String meta=(cards==0?"Карты пока не определены":cards+" "+(cards==1?"карта":"карты"))+" · нажми для действий";add(c,text(meta,12,0xffbdcfc3,false));\n  c.setOnClickListener(v->bankMenu(bank));c.setContentDescription(bank+", "+(value==null?"баланс не указан":rub(value))+", открыть меню банка");add(p,c);gap(p,12);\n }\n void bankMenu(String bank){Long value=bankBalance(bank);String balanceAction=value==null?"Указать баланс":"Изменить баланс";new AlertDialog.Builder(this).setTitle(bank).setItems(new String[]{"Операции банка",balanceAction},(d,i)->{if(i==0){selectedBank=bank;selectedCard="";allTime=true;onlyReview=false;tab=1;render();}else editBalance(bank);}).show();}\n void editBalance(String bank){LinearLayout p=col();p.setPadding(dp(20),dp(8),dp(20),dp(8));Long current=bankBalance(bank);EditText amount=field(p,"Текущий баланс, ₽",current==null?"":java.math.BigDecimal.valueOf(current,2).toPlainString(),InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL);hint(p,"Это общий баланс по картам "+bank+". Ручное значение имеет приоритет над балансом из новых уведомлений банка.");AlertDialog d=new AlertDialog.Builder(this).setTitle(bank).setView(p).setNegativeButton("Отмена",null).setNeutralButton(prefs.contains("balance_"+bank)?"Авто":"",null).setPositiveButton("Сохранить",null).create();d.setOnShowListener(x->{d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{String raw=amount.getText().toString().trim();if(!raw.matches("\\\\d+(?:[.,]\\\\d{1,2})?")){amount.setError("Например 12500,50");return;}long value=BankParser.money(raw);if(value<0||value>10000000000000L)throw new IllegalArgumentException();prefs.edit().putLong("balance_"+bank,value).apply();d.dismiss();render();}catch(Exception ex){amount.setError("Проверь сумму");}});if(prefs.contains("balance_"+bank))d.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v->{prefs.edit().remove("balance_"+bank).apply();d.dismiss();render();});});d.show();}\n'+s[b:]
+          p.write_text(s)
+          
+          p=Path("app/src/main/java/ru/kazna/app/StatementParser.java")
+          s=p.read_text()
+          i=s.index(" static String norm")
+          s=s[:i]+' static final Pattern SUMMARY_LABEL=Pattern.compile("(?iu)^(?:прочие(?: операции)?|транспорт|такси|авто|продукты|супермаркеты|кафе(?: и рестораны)?|рестораны|дом|жкх|покупки|здоровье|аптеки|подписки|связь|переводы|наличные|развлечения|комиссии|возврат(?:,? отмена операции)?|отмена операции|доходы|расходы|поступления)(?:\\\\s|:|—|-)+.*");\n static boolean summaryLine(String s){String t=title(s);if(t.matches(".*(итого|всего расходов|всего поступлений|расходы за период|поступления за период|структура расходов|по категориям).*"))return true;return SUMMARY_LABEL.matcher(norm(s)).matches()&&!t.matches(".*(покупк|оплат|списан|зачислен|поступил|перевод|снятие|выдача наличных|номер карты|карта [*•xх]).*");}\n static int balanceMarker(String s){Matcher m=Pattern.compile("(?iu)(баланс|остаток|доступно|доступный баланс|кэшбэк|кешбэк|бонус(?:ы)?)").matcher(s);return m.find()?m.start():s.length();}\n static boolean balanceOnly(String s){String t=title(s);return t.startsWith("баланс")||t.startsWith("остаток")||t.startsWith("доступно")||t.startsWith("доступный баланс");}\n'+s[i:]
+          a=s.index(" public static Result text(")
+          b=s.index(" public static void match(",a)
+          s=s[:a]+' public static Result text(String text,String bank,String doc){\n  Result out=new Result();String[] lines=text.replace(\'\\u00a0\',\' \').split("\\\\r?\\\\n");int index=0;\n  for(String line:lines){index++;String raw=norm(line);Matcher d=DATE.matcher(raw);if(!d.find()){continue;}\n   if(out.rows.size()>=2000)throw new IllegalArgumentException("Не больше 2000 строк за импорт");\n   try{\n    long time=date(d.group());String rest=raw.substring(d.end()).trim();\n    Matcher second=DATE.matcher(rest);if(second.lookingAt())rest=rest.substring(second.end()).trim();\n    if(rest.toLowerCase(new Locale("ru")).matches(".*(задолженность|лимит).*" )||summaryLine(rest)||balanceOnly(rest)){out.skipped++;continue;}\n    Entry e=new Entry();e.bank=bank;e.time=time;e.raw=raw.length()>6000?raw.substring(0,6000):raw;\n    String value="";int a=-1,b=-1,count=0;Matcher money=SIGNED_RUB.matcher(rest);\n    while(money.find()){count++;if(count==1){value=money.group(1);a=money.start();b=money.end();}}\n    if(count!=1){int cutoff=balanceMarker(rest);money=MONEY.matcher(rest.substring(0,cutoff));value="";a=-1;b=-1;count=0;while(money.find()){count++;if(count==1){value=money.group(1);a=money.start();b=money.end();}}}\n    if(count==0){out.skipped++;continue;}\n    String warning=count>1?"Несколько сумм в строке — укажи сумму операции":"";\n    e.amount=count==1?amount(value):0;e.type=kind(rest,value);\n    if(Pattern.compile("(?iu)(usd|eur|cny|kzt|[$€¥])").matcher(rest).find()){e.amount=0;e.type="unknown";warning="Валютная операция требует ручной проверки";}\n    e.merchant=norm(a<0?rest:rest.substring(0,a)+" "+rest.substring(b)).replaceAll("\\\\s+"," ");\n    Matcher card=Pattern.compile("[*•]+\\\\s*(\\\\d{4})(?!\\\\d)").matcher(e.merchant);if(card.find())e.card=card.group(1);\n    if(e.merchant.length()>200)e.merchant=e.merchant.substring(0,200);if(e.merchant.isEmpty())e.merchant="Операция из выписки";\n    e.category=BankParser.category(e.merchant);e.review=true;\n    if(e.type.equals("unknown"))warning=warning.isEmpty()?"Выбери вид операции":warning;\n    Row r=row(e,doc,index,warning);r.entry.review=true;r.selected=false;out.rows.add(r);\n   }catch(Exception ex){out.skipped++;}\n  }\n  out.note="Текст/PDF: итоги и категории выписки отбрасываются. Реальные операции показываются для проверки; сомнительные строки не добавляются автоматически.";return out;\n }\n'+s[b:]
+          p.write_text(s)
+          PY
+          python3 /tmp/patch06.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -28,7 +57,7 @@ jobs:
       - name: Build unsigned release APK
         working-directory: kazna
         run: gradle --no-daemon :app:assembleRelease
-      - name: Prepare local signing tools
+      - name: Export signing tools
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           mkdir -p signer-tools/lib
@@ -36,18 +65,14 @@ jobs:
           cp "$BT/zipalign" signer-tools/
           cp "$BT/lib/apksigner.jar" signer-tools/lib/
           chmod +x signer-tools/apksigner signer-tools/zipalign
-          echo "Using build tools: $BT"
       - uses: actions/upload-artifact@v4
         with:
-          name: android-signing-tools
+          name: android-signing-tools-06
           path: signer-tools
-          if-no-files-found: error
           retention-days: 1
-      - name: List outputs
-        run: find kazna/app/build/outputs -type f -maxdepth 8 -print
       - uses: actions/upload-artifact@v4
         with:
-          name: kazna-0.5-unsigned
+          name: kazna-0.6-unsigned
           path: kazna/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 1
