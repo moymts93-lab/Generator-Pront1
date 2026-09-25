@@ -45,6 +45,11 @@ jobs:
           tar -xzf kazna073-hotfix.tar.gz -C kazna
           sed -E -i "s/versionCode [0-9]+; versionName '[^']+'/versionCode 73; versionName '0.7.3'/" kazna/app/build.gradle
           grep "versionCode 73; versionName '0.7.3'" kazna/app/build.gradle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kazna-current-source
+          path: kazna
+          retention-days: 1
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
