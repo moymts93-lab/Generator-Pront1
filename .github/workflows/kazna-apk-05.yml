@@ -15,7 +15,9 @@ jobs:
       - name: Extract source
         run: |
           mkdir -p kazna
-          tar -xzf kazna-src.tar.gz -C kazna
+          cat kazna-src-parts/*.b64 | base64 -d > kazna-src-ci.tar.gz
+          echo "cffe9d3b4a54daeafc5e110f94c255dda1f0a560fef98463ab0d017e66f5eb37  kazna-src-ci.tar.gz" | sha256sum -c -
+          tar -xzf kazna-src-ci.tar.gz -C kazna
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
