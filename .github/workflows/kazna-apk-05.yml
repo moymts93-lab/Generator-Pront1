@@ -1,4 +1,4 @@
-name: Build Kazna 7.2 APK
+name: Build Kazna 0.7.2 APK
 on:
   push:
     branches: [ "kazna-apk-05-build" ]
@@ -49,12 +49,12 @@ jobs:
           chmod +x signer-tools/apksigner signer-tools/zipalign
       - uses: actions/upload-artifact@v4
         with:
-          name: android-signing-tools-72
+          name: android-signing-tools-072
           path: signer-tools
           retention-days: 1
       - uses: actions/upload-artifact@v4
         with:
-          name: kazna-7.2-unsigned
+          name: kazna-0.7.2-unsigned
           path: kazna/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 1
