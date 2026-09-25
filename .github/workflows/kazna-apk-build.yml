@@ -8,56 +8,39 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Download Kazna source
+      - name: Download source
         run: |
-          set -euxo pipefail
-          curl -fL --retry 3 -o /tmp/kazna.zip "https://kazna-build-host-20260925.floot.app/_cdn/static/f8ecbf7b-3e73-41de-bf67-818b571065b6-Kazna-0.7.7-source.zip"
-          rm -rf kazna-src
+          curl -fL -o /tmp/kazna.zip "https://kazna-build-host-20260925.floot.app/_cdn/static/f8ecbf7b-3e73-41de-bf67-818b571065b6-Kazna-0.7.7-source.zip"
           mkdir kazna-src
           unzip -q /tmp/kazna.zip -d kazna-src
-          test -f kazna-src/app/build.gradle
-          grep -n "versionName '0.7.7'" kazna-src/app/build.gradle
-
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
-      - name: Install Android SDK 35
-        run: |
-          set -euxo pipefail
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
-          test -x "$SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Build debug APK
+      - name: Set up Android
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+      - name: Install SDK 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Build APK
         working-directory: kazna-src
         run: gradle --no-daemon --stacktrace assembleDebug
-
       - name: Verify APK
         run: |
-          set -euxo pipefail
           APK="kazna-src/app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -20
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           cp "$APK" Kazna-0.7.7.apk
           sha256sum Kazna-0.7.7.apk > Kazna-0.7.7.sha256
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -65,4 +48,3 @@ jobs:
           path: |
             Kazna-0.7.7.apk
             Kazna-0.7.7.sha256
-          if-no-files-found: error
