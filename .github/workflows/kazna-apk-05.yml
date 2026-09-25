@@ -1,4 +1,4 @@
-name: Build Kazna 0.7.5 APK
+name: Build Kazna 0.7.6 APK
 on:
   push:
     branches: [ "kazna-apk-05-build" ]
@@ -17,6 +17,13 @@ jobs:
           echo "de14b8ef7c4f636671d784b84db11879093a7438f9bd04f0beffce3b193299e6  kazna075-full.tar.gz" | sha256sum -c -
           tar -xzf kazna075-full.tar.gz -C kazna
           grep "versionCode 75; versionName '0.7.5'" kazna/app/build.gradle
+      - name: Apply 0.7.6 diagnostic report patch
+        working-directory: kazna
+        run: |
+          python3 ../kazna076_patch.py
+          grep "versionCode 76; versionName '0.7.6'" app/build.gradle
+          grep -n "Собрать отчёт для ChatGPT" app/src/main/java/ru/kazna/app/MainActivity.java
+          test -s app/src/main/java/ru/kazna/app/DiagnosticLog.java
       - name: Add Russian OCR models
         run: |
           mkdir -p kazna/app/src/main/assets/tessdata
@@ -38,8 +45,8 @@ jobs:
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           IN=$(find kazna/app/build/outputs/apk/release -name '*-unsigned.apk' | head -1)
-          "$BT/zipalign" -f -p 4 "$IN" kazna/app/build/outputs/apk/release/Kazna-0.7.5-aligned-unsigned.apk
-          "$BT/zipalign" -c -p 4 kazna/app/build/outputs/apk/release/Kazna-0.7.5-aligned-unsigned.apk
+          "$BT/zipalign" -f -p 4 "$IN" kazna/app/build/outputs/apk/release/Kazna-0.7.6-aligned-unsigned.apk
+          "$BT/zipalign" -c -p 4 kazna/app/build/outputs/apk/release/Kazna-0.7.6-aligned-unsigned.apk
       - name: Export signing tools
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
@@ -49,12 +56,12 @@ jobs:
           chmod +x signer-tools/apksigner
       - uses: actions/upload-artifact@v4
         with:
-          name: android-signing-tools-075
+          name: android-signing-tools-076
           path: signer-tools
           retention-days: 1
       - uses: actions/upload-artifact@v4
         with:
-          name: kazna-0.7.5-unsigned
-          path: kazna/app/build/outputs/apk/release/Kazna-0.7.5-aligned-unsigned.apk
+          name: kazna-0.7.6-unsigned
+          path: kazna/app/build/outputs/apk/release/Kazna-0.7.6-aligned-unsigned.apk
           if-no-files-found: error
           retention-days: 1
