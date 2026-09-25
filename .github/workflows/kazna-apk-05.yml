@@ -29,6 +29,14 @@ jobs:
           tar -xzf kazna72-overlay.tar.gz -C kazna
           sed -E -i "s/versionCode [0-9]+; versionName '[^']+'/versionCode 72; versionName '7.2'/" kazna/app/build.gradle
           grep "versionCode 72; versionName '7.2'" kazna/app/build.gradle
+      - name: Apply 0.7.2 credit screenshot support
+        run: |
+          echo "99e9032a07d9dd47010f308c89f80ec148c66dd7bcdec5e34e2988a2069af6b7  kazna072-overlay.tar.gz" | sha256sum -c -
+          tar -xzf kazna072-overlay.tar.gz -C kazna
+          sed -E -i "s/versionCode [0-9]+; versionName '[^']+'/versionCode 72; versionName '0.7.2'/" kazna/app/build.gradle
+          python3 -c "from pathlib import Path; p=Path('kazna/app/build.gradle'); s=p.read_text(); s=s.replace('dependencies {', \"dependencies { implementation 'com.google.mlkit:text-recognition:16.0.1';\", 1); p.write_text(s)"
+          grep "versionCode 72; versionName '0.7.2'" kazna/app/build.gradle
+          grep "text-recognition" kazna/app/build.gradle
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
