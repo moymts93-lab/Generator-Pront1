@@ -1,0 +1,34 @@
+name: Build Kazna 0.5 APK
+on:
+  push:
+    branches: [ "kazna-apk-05-build" ]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract source
+        run: |
+          mkdir -p kazna
+          tar -xzf kazna-src.tar.gz -C kazna
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build unsigned release APK
+        working-directory: kazna
+        run: gradle --no-daemon :app:assembleRelease
+      - name: List outputs
+        run: find kazna/app/build/outputs -type f -maxdepth 8 -print
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kazna-0.5-unsigned
+          path: kazna/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 1
