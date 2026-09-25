@@ -14,7 +14,7 @@ jobs:
         run: |
           rm -rf kazna
           mkdir -p kazna
-          echo "b71ba822ad83851c9c8d7c34bd25b44c7e6da5e9191916d45b8073fe2bcd9cbc  kazna075-full.tar.gz" | sha256sum -c -
+          echo "85cd60ab2eebbae80e0593fbeb28e4771ab2cf75e9d380698ccc6301b814fc8d  kazna075-full.tar.gz" | sha256sum -c -
           tar -xzf kazna075-full.tar.gz -C kazna
           grep "versionCode 75; versionName '0.7.5'" kazna/app/build.gradle
       - name: Add Russian OCR models
