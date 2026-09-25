@@ -7,30 +7,18 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Extract Kazna 0.7.4 source
+      - name: Extract Kazna 0.7.5 source
         run: |
           rm -rf kazna
           mkdir -p kazna
-          echo "2fb16858cdae586e76820a2e8a28dbbfc9ae82c6894f73e29fe5aa7505f1fbcc  kazna074-full.tar.gz" | sha256sum -c -
-          tar -xzf kazna074-full.tar.gz -C kazna
-          grep "versionCode 74; versionName '0.7.4'" kazna/app/build.gradle
-          grep '^android.useAndroidX=true' kazna/gradle.properties
-      - name: Apply Kazna 0.7.5 changes
-        run: |
-          echo "f92efb51a98924173010690a39e71f13936f94371d0d96b5134b23b72adc6470  kazna075-overlay.tar.gz" | sha256sum -c -
-          tar -xzf kazna075-overlay.tar.gz -C kazna
+          echo "b71ba822ad83851c9c8d7c34bd25b44c7e6da5e9191916d45b8073fe2bcd9cbc  kazna075-full.tar.gz" | sha256sum -c -
+          tar -xzf kazna075-full.tar.gz -C kazna
           grep "versionCode 75; versionName '0.7.5'" kazna/app/build.gradle
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path("kazna/settings.gradle")
-          s=p.read_text()
-          if "jitpack.io" not in s:
-              s=s.replace("repositories { google(); mavenCentral() }","repositories { google(); mavenCentral(); maven { url 'https://jitpack.io' } }")
-          p.write_text(s)
-          PY
+      - name: Add Russian OCR models
+        run: |
           mkdir -p kazna/app/src/main/assets/tessdata
           curl -L --fail --retry 3 -o kazna/app/src/main/assets/tessdata/rus.traineddata https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/rus.traineddata
           curl -L --fail --retry 3 -o kazna/app/src/main/assets/tessdata/eng.traineddata https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata
