@@ -28,6 +28,21 @@ jobs:
       - name: Build unsigned release APK
         working-directory: kazna
         run: gradle --no-daemon :app:assembleRelease
+      - name: Prepare local signing tools
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          mkdir -p signer-tools/lib
+          cp "$BT/apksigner" signer-tools/
+          cp "$BT/zipalign" signer-tools/
+          cp "$BT/lib/apksigner.jar" signer-tools/lib/
+          chmod +x signer-tools/apksigner signer-tools/zipalign
+          echo "Using build tools: $BT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-signing-tools
+          path: signer-tools
+          if-no-files-found: error
+          retention-days: 1
       - name: List outputs
         run: find kazna/app/build/outputs -type f -maxdepth 8 -print
       - uses: actions/upload-artifact@v4
