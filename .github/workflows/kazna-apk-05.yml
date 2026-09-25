@@ -37,6 +37,8 @@ jobs:
           python3 -c "from pathlib import Path; p=Path('kazna/app/build.gradle'); s=p.read_text(); s=s.replace('dependencies {', \"dependencies { implementation 'com.google.mlkit:text-recognition:16.0.1';\", 1); p.write_text(s)"
           grep "versionCode 72; versionName '0.7.2'" kazna/app/build.gradle
           grep "text-recognition" kazna/app/build.gradle
+          if grep -q '^android.useAndroidX=' kazna/gradle.properties; then sed -i 's/^android.useAndroidX=.*/android.useAndroidX=true/' kazna/gradle.properties; else echo 'android.useAndroidX=true' >> kazna/gradle.properties; fi
+          grep '^android.useAndroidX=true' kazna/gradle.properties
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
