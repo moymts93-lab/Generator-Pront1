@@ -19,6 +19,8 @@ jobs:
       - name: Apply Kazna 7.1 source
         run: |
           tar -xzf kazna71-overlay.tar.gz -C kazna
+          mkdir -p kazna/vendor/pdfbox
+          unzip -q -o kazna/vendor/pdfbox-android-2.0.27.0.aar 'assets/*' -d kazna/vendor/pdfbox
           grep -q "versionCode 71" kazna/app/build.gradle
           grep -q "versionName '7.1'" kazna/app/build.gradle
       - uses: actions/setup-java@v4
