@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Download source
         run: |
-          curl -fL -o /tmp/kazna.zip "https://kazna-build-host-20260925.floot.app/_cdn/static/f1d38294-6cda-44aa-9431-367b9b3491a7-Kazna-0.7.9-source-final.zip"
+          curl -fL -o /tmp/kazna.zip "https://kazna-build-host-20260925.floot.app/_cdn/static/4fe7398f-bf49-4703-a49a-792f04926ff9-Kazna-0.7.9-source-current.zip"
           mkdir kazna-src
           unzip -q /tmp/kazna.zip -d kazna-src
           grep -n "versionName '0.7.9'" kazna-src/app/build.gradle
