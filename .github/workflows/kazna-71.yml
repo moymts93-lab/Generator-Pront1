@@ -22,6 +22,10 @@ jobs:
           mkdir -p kazna/vendor/pdfbox
           curl -fL "https://repo1.maven.org/maven2/com/tom-roush/pdfbox-android/2.0.27.0/pdfbox-android-2.0.27.0.aar" -o /tmp/pdfbox-android.aar
           unzip -q -o /tmp/pdfbox-android.aar 'assets/*' -d kazna/vendor/pdfbox
+          unzip -p /tmp/pdfbox-android.aar classes.jar > kazna/vendor/pdfbox/classes.jar
+          curl -fL "https://repo1.maven.org/maven2/org/bouncycastle/bcprov-jdk15to18/1.72/bcprov-jdk15to18-1.72.jar" -o kazna/vendor/bcprov-jdk15to18-1.72.jar
+          curl -fL "https://repo1.maven.org/maven2/org/bouncycastle/bcpkix-jdk15to18/1.72/bcpkix-jdk15to18-1.72.jar" -o kazna/vendor/bcpkix-jdk15to18-1.72.jar
+          curl -fL "https://repo1.maven.org/maven2/org/bouncycastle/bcutil-jdk15to18/1.72/bcutil-jdk15to18-1.72.jar" -o kazna/vendor/bcutil-jdk15to18-1.72.jar
           grep -q "versionCode 71" kazna/app/build.gradle
           grep -q "versionName '7.1'" kazna/app/build.gradle
       - uses: actions/setup-java@v4
