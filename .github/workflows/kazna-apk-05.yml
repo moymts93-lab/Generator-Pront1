@@ -1,4 +1,4 @@
-name: Build Kazna 0.6 APK
+name: Build Kazna 0.7 APK
 on:
   push:
     branches: [ "kazna-apk-05-build" ]
@@ -47,6 +47,93 @@ jobs:
           p.write_text(s)
           PY
           python3 /tmp/patch06.py
+      - name: Apply 0.7 automatic Sber statement recognition
+        working-directory: kazna
+        run: |
+          cat > /tmp/patch07.py <<'PY'
+          from pathlib import Path
+
+          p=Path("app/build.gradle")
+          s=p.read_text()
+          s=s.replace("versionCode 6; versionName '0.6.0'","versionCode 7; versionName '0.7.0'")
+          p.write_text(s)
+
+          p=Path("app/src/main/java/ru/kazna/app/StatementParser.java")
+          s=p.read_text()
+
+          a=s.index(" static boolean summaryLine(")
+          b=s.index(" static int balanceMarker(",a)
+          s=s[:a]+r''' static boolean summaryLine(String s){
+  String t=title(s);
+  if(t.matches(".*(остаток\\s+на\\s+(?:\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})|начальный остаток|конечный остаток|входящий остаток|исходящий остаток).*"))return true;
+  if(t.matches(".*(итого|всего расходов|всего поступлений|расходы за период|поступления за период|структура расходов|по категориям|сумма расходов|сумма поступлений).*"))return true;
+  return SUMMARY_LABEL.matcher(norm(s)).matches()&&!t.matches(".*(покупк|оплат|списан|зачислен|поступил|перевод|снятие|выдача наличных|номер карты|карта [*•xх]).*");
+ }
+ static boolean autoType(String type){return type.equals("expense")||type.equals("income")||type.equals("refund")||type.equals("cash")||type.equals("own");}
+'''+s[b:]
+
+          old='static Row row(Entry e,String document,int line,String warning){Row r=new Row();e.key=BankParser.fingerprint("statement|"+e.bank+"|"+document+"|"+line);e.source="statement";e.review=e.type.equals("unknown")||e.category.equals("Другое")||e.type.startsWith("transfer");r.entry=e;r.number=line;r.warning=warning;r.selected=e.counted()&&warning.isEmpty();return r;}'
+          new='static Row row(Entry e,String document,int line,String warning){Row r=new Row();e.key=BankParser.fingerprint("statement|"+e.bank+"|"+document+"|"+line);e.source="statement";e.review=e.type.equals("unknown")||e.type.startsWith("transfer");r.entry=e;r.number=line;r.warning=warning;r.selected=e.counted()&&warning.isEmpty()&&autoType(e.type);return r;}'
+          assert old in s
+          s=s.replace(old,new)
+
+          a=s.index(" public static Result text(")
+          b=s.index(" public static void match(",a)
+          s=s[:a]+r''' public static Result text(String text,String bank,String doc){
+  Result out=new Result();String[] lines=text.replace('\u00a0',' ').split("\\r?\\n");int index=0;
+  for(int li=0;li<lines.length;li++){index=li+1;String raw=norm(lines[li]);Matcher d=DATE.matcher(raw);if(!d.find())continue;
+   if(out.rows.size()>=2000)throw new IllegalArgumentException("Не больше 2000 строк за импорт");
+   try{
+    if(summaryLine(raw)||balanceOnly(raw)){out.skipped++;continue;}
+    String combined=raw;
+    for(int j=li+1;j<Math.min(lines.length,li+4);j++){String next=norm(lines[j]);if(next.isEmpty())continue;if(DATE.matcher(next).find())break;if(summaryLine(next)||balanceOnly(next))continue;if(next.length()<=240)combined+=" "+next;}
+    long time=date(d.group());Matcher cd=DATE.matcher(combined);cd.find();String rest=combined.substring(cd.end()).trim();
+    Matcher second=DATE.matcher(rest);if(second.lookingAt())rest=rest.substring(second.end()).trim();
+    if(summaryLine(rest)||balanceOnly(rest)||rest.toLowerCase(new Locale("ru")).matches(".*(задолженность|лимит).*")){out.skipped++;continue;}
+    Entry e=new Entry();e.bank=bank;e.time=time;e.raw=combined.length()>6000?combined.substring(0,6000):combined;
+
+    java.util.List<String> values=new ArrayList<>();java.util.List<Integer> starts=new ArrayList<>();java.util.List<Integer> ends=new ArrayList<>();
+    Matcher money=SIGNED_RUB.matcher(rest);
+    while(money.find()){values.add(money.group(1));starts.add(money.start());ends.add(money.end());}
+    if(values.isEmpty()){int cutoff=balanceMarker(rest);money=MONEY.matcher(rest.substring(0,cutoff));while(money.find()){values.add(money.group(1));starts.add(money.start());ends.add(money.end());}}
+    if(values.isEmpty()){out.skipped++;continue;}
+
+    boolean same=true;long first=-1;
+    for(String candidate:values){long parsed=amount(candidate);if(first<0)first=parsed;else if(parsed!=first)same=false;}
+    int chosen=0;String warning="";
+    if(values.size()>1&&!same)warning="Несколько разных сумм в строке — укажи сумму операции";
+    String value=values.get(chosen);int ma=starts.get(chosen),mb=ends.get(chosen);
+    e.amount=warning.isEmpty()?first:0;e.type=kind(rest,value);
+    if(Pattern.compile("(?iu)(usd|eur|cny|kzt|[$€¥])").matcher(rest).find()){e.amount=0;e.type="unknown";warning="Валютная операция требует ручной проверки";}
+    e.merchant=norm(rest.substring(0,ma)+" "+rest.substring(mb)).replaceAll("\\s+"," ");
+    Matcher card=Pattern.compile("[*•]+\\s*(\\d{4})(?!\\d)").matcher(e.merchant);if(card.find())e.card=card.group(1);
+    if(e.merchant.length()>200)e.merchant=e.merchant.substring(0,200);if(e.merchant.isEmpty())e.merchant="Операция из выписки";
+    e.category=BankParser.category(e.merchant);
+    if(e.type.equals("unknown"))warning=warning.isEmpty()?"Не удалось определить расход или поступление":warning;
+    if(e.type.startsWith("transfer"))warning=warning.isEmpty()?"Проверь направление перевода":warning;
+    Row r=row(e,doc,index,warning);out.rows.add(r);
+   }catch(Exception ex){out.skipped++;}
+  }
+  out.note="Сбер/PDF: однозначные покупки, списания, поступления и возвраты выбраны автоматически. Остатки, итоги и категории выписки отбрасываются. Проверка нужна только для неоднозначных строк.";
+  return out;
+ }
+'''+s[b:]
+          p.write_text(s)
+
+          p=Path("app/src/main/java/ru/kazna/app/ImportActivity.java")
+          s=p.read_text()
+          s=s.replace("Выбрать проверенные строки без совпадений","Выбрать все однозначные операции")
+          p.write_text(s)
+
+          p=Path("tests/InsightsImportTest.java")
+          s=p.read_text()
+          old='ok(pdf.rows.size()==3,"PDF date rows only");ok(pdf.rows.get(0).entry.amount==125050&&!pdf.rows.get(0).selected,"PDF manual verification");ok(pdf.rows.get(1).entry.amount==0,"multiple currencies no guess");ok(pdf.rows.get(2).entry.type.equals("unknown"),"unsigned PDF no guess");'
+          new='ok(pdf.rows.size()==3,"PDF date rows only");ok(pdf.rows.get(0).entry.amount==125050&&pdf.rows.get(0).selected&&!pdf.rows.get(0).entry.review,"clear PDF purchase auto selected");ok(pdf.rows.get(1).entry.amount==0&&!pdf.rows.get(1).selected,"multiple currencies no guess");ok(pdf.rows.get(2).entry.type.equals("unknown")&&!pdf.rows.get(2).selected,"unsigned PDF no guess");StatementParser.Result sber=StatementParser.text("Купин Андрей Дмитриевич Остаток на 01.09.2025 258,15\\n25.09.2026 Покупка MAGNIT -450,00 ₽\\n25.09.2026 Оплата PYATEROCHKA 700,00 ₽ 700,00 ₽","Сбер","sber");ok(sber.rows.size()==2,"Sber balance summary skipped");ok(sber.rows.get(0).selected&&sber.rows.get(0).entry.type.equals("expense"),"Sber signed purchase automatic");ok(sber.rows.get(1).selected&&sber.rows.get(1).entry.amount==70000,"duplicate same amount columns automatic");'
+          assert old in s
+          s=s.replace(old,new)
+          p.write_text(s)
+          PY
+          python3 /tmp/patch07.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -54,6 +141,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Run parser tests
+        working-directory: kazna
+        run: ./test.sh
       - name: Build unsigned release APK
         working-directory: kazna
         run: gradle --no-daemon :app:assembleRelease
@@ -67,12 +157,12 @@ jobs:
           chmod +x signer-tools/apksigner signer-tools/zipalign
       - uses: actions/upload-artifact@v4
         with:
-          name: android-signing-tools-06
+          name: android-signing-tools-07
           path: signer-tools
           retention-days: 1
       - uses: actions/upload-artifact@v4
         with:
-          name: kazna-0.6-unsigned
+          name: kazna-0.7-unsigned
           path: kazna/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 1
