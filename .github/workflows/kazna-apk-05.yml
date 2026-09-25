@@ -1,4 +1,4 @@
-name: Build Kazna 7.1 APK
+name: Build Kazna 0.7.2 APK
 on:
   push:
     branches: [ "kazna-apk-05-build" ]
@@ -22,8 +22,8 @@ jobs:
           echo "83dce1a122e1ead5ad7e1634b8cb807c9801a38491e39cede60d40dfae76096d  kazna71-overlay.tar.gz" | sha256sum -c -
           tar -xzf kazna71-overlay.tar.gz -C kazna
           cp /tmp/kazna-base-build.gradle kazna/app/build.gradle
-          sed -E -i "s/versionCode [0-9]+; versionName '[^']+'/versionCode 71; versionName '7.1'/" kazna/app/build.gradle
-          grep "versionCode 71; versionName '7.1'" kazna/app/build.gradle
+          sed -E -i "s/versionCode [0-9]+; versionName '[^']+'/versionCode 72; versionName '0.7.2'/" kazna/app/build.gradle
+          grep "versionCode 72; versionName '0.7.2'" kazna/app/build.gradle
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -44,12 +44,12 @@ jobs:
           chmod +x signer-tools/apksigner signer-tools/zipalign
       - uses: actions/upload-artifact@v4
         with:
-          name: android-signing-tools-71
+          name: android-signing-tools-072
           path: signer-tools
           retention-days: 1
       - uses: actions/upload-artifact@v4
         with:
-          name: kazna-7.1-unsigned
+          name: kazna-0.7.2-unsigned
           path: kazna/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 1
