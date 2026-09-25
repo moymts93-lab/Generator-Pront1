@@ -25,15 +25,24 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-      - name: Build unsigned release APK
+      - name: Patch manual APK builder for 7.1
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path("kazna/build_apk.py")
+          s=p.read_text()
+          s=re.sub(r"BT=SDK/'build-tools/[^']+'", "BT=next((SDK/'build-tools'/v for v in ['35.0.1','35.0.0'] if (SDK/'build-tools'/v).is_dir()), SDK/'build-tools/35.0.0')", s)
+          s=re.sub(r"'--version-code','[^']+','--version-name','[^']+'", "'--version-code','71','--version-name','7.1'", s)
+          s=re.sub(r"apk=BUILD/'Kazna-[^']+\\.apk'", "apk=BUILD/'Kazna-7.1.apk'", s)
+          p.write_text(s)
+          PY
+      - name: Build and sign Kazna 7.1 APK
         working-directory: kazna
-        run: gradle --no-daemon :app:assembleRelease
+        run: python3 build_apk.py
       - uses: actions/upload-artifact@v4
         with:
-          name: kazna-7.1-unsigned
-          path: kazna/app/build/outputs/apk/release/*.apk
+          name: Kazna-7.1
+          path: kazna/build/local-apk/Kazna-7.1.apk
           if-no-files-found: error
           retention-days: 1
