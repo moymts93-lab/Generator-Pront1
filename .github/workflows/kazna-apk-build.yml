@@ -13,9 +13,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Download source
         run: |
-          curl -fL -o /tmp/kazna.zip "https://kazna-build-host-20260925.floot.app/_cdn/static/f8ecbf7b-3e73-41de-bf67-818b571065b6-Kazna-0.7.7-source.zip"
+          curl -fL -o /tmp/kazna.zip "https://kazna-build-host-20260925.floot.app/_cdn/static/5a526e82-2cf9-4fb2-a369-efa1fbdb08f2-Kazna-0.7.8-source.zip"
           mkdir kazna-src
           unzip -q /tmp/kazna.zip -d kazna-src
+          grep -n "versionName '0.7.8'" kazna-src/app/build.gradle
       - name: Set up JDK
         uses: actions/setup-java@v5
         with:
@@ -39,12 +40,12 @@ jobs:
           APK="kazna-src/app/build/outputs/apk/debug/app-debug.apk"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -20
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
-          cp "$APK" Kazna-0.7.7.apk
-          sha256sum Kazna-0.7.7.apk > Kazna-0.7.7.sha256
+          cp "$APK" Kazna-0.7.8.apk
+          sha256sum Kazna-0.7.8.apk > Kazna-0.7.8.sha256
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Kazna-0.7.7
+          name: Kazna-0.7.8
           path: |
-            Kazna-0.7.7.apk
-            Kazna-0.7.7.sha256
+            Kazna-0.7.8.apk
+            Kazna-0.7.8.sha256
