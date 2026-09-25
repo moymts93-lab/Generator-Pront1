@@ -20,7 +20,8 @@ jobs:
         run: |
           tar -xzf kazna71-overlay.tar.gz -C kazna
           mkdir -p kazna/vendor/pdfbox
-          unzip -q -o kazna/vendor/pdfbox-android-2.0.27.0.aar 'assets/*' -d kazna/vendor/pdfbox
+          curl -fL "https://repo1.maven.org/maven2/com/tom-roush/pdfbox-android/2.0.27.0/pdfbox-android-2.0.27.0.aar" -o /tmp/pdfbox-android.aar
+          unzip -q -o /tmp/pdfbox-android.aar 'assets/*' -d kazna/vendor/pdfbox
           grep -q "versionCode 71" kazna/app/build.gradle
           grep -q "versionName '7.1'" kazna/app/build.gradle
       - uses: actions/setup-java@v4
