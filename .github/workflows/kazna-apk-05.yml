@@ -24,6 +24,10 @@ jobs:
           curl -L --fail --retry 3 -o kazna/app/src/main/assets/tessdata/eng.traineddata https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata
           test -s kazna/app/src/main/assets/tessdata/rus.traineddata
           test -s kazna/app/src/main/assets/tessdata/eng.traineddata
+      - name: Apply credit parser Java 8 hotfix
+        run: |
+          echo "becf96534d2c963e02f5e366c400e57aa9855e9d51a78d8bd4134a2c7528dcbf  kazna075-credit-hotfix.tar.gz" | sha256sum -c -
+          tar -xzf kazna075-credit-hotfix.tar.gz -C kazna
       - name: Fix Java 8 regex escapes
         run: |
           python3 - <<'PY'
