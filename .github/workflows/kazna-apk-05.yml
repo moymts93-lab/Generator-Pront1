@@ -1,4 +1,4 @@
-name: Build Kazna 0.7.3 APK
+name: Build Kazna 0.7.4 APK
 on:
   push:
     branches: [ "kazna-apk-05-build" ]
@@ -45,6 +45,12 @@ jobs:
           tar -xzf kazna073-hotfix.tar.gz -C kazna
           sed -E -i "s/versionCode [0-9]+; versionName '[^']+'/versionCode 73; versionName '0.7.3'/" kazna/app/build.gradle
           grep "versionCode 73; versionName '0.7.3'" kazna/app/build.gradle
+      - name: Apply 0.7.4 workflow and import fixes
+        run: |
+          echo "9c4dd76879a5af9933fd11c04903f1cb0dd9c1a4cb0fea15c76a4f63ccf6f1c5  kazna074-overlay.tar.gz" | sha256sum -c -
+          tar -xzf kazna074-overlay.tar.gz -C kazna
+          sed -E -i "s/versionCode [0-9]+; versionName '[^']+'/versionCode 74; versionName '0.7.4'/" kazna/app/build.gradle
+          grep "versionCode 74; versionName '0.7.4'" kazna/app/build.gradle
       - uses: actions/upload-artifact@v4
         with:
           name: kazna-current-source
@@ -64,8 +70,8 @@ jobs:
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           IN=$(find kazna/app/build/outputs/apk/release -name '*-unsigned.apk' | head -1)
-          "$BT/zipalign" -f -p 4 "$IN" kazna/app/build/outputs/apk/release/Kazna-0.7.3-aligned-unsigned.apk
-          "$BT/zipalign" -c -p 4 kazna/app/build/outputs/apk/release/Kazna-0.7.3-aligned-unsigned.apk
+          "$BT/zipalign" -f -p 4 "$IN" kazna/app/build/outputs/apk/release/Kazna-0.7.4-aligned-unsigned.apk
+          "$BT/zipalign" -c -p 4 kazna/app/build/outputs/apk/release/Kazna-0.7.4-aligned-unsigned.apk
       - name: Export signing tools
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
@@ -76,12 +82,12 @@ jobs:
           chmod +x signer-tools/apksigner signer-tools/zipalign
       - uses: actions/upload-artifact@v4
         with:
-          name: android-signing-tools-073
+          name: android-signing-tools-074
           path: signer-tools
           retention-days: 1
       - uses: actions/upload-artifact@v4
         with:
-          name: kazna-0.7.3-unsigned
-          path: kazna/app/build/outputs/apk/release/Kazna-0.7.3-aligned-unsigned.apk
+          name: kazna-0.7.4-unsigned
+          path: kazna/app/build/outputs/apk/release/Kazna-0.7.4-aligned-unsigned.apk
           if-no-files-found: error
           retention-days: 1
