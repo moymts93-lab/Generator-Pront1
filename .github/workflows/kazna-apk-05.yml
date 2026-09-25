@@ -23,6 +23,19 @@ jobs:
           echo "f92efb51a98924173010690a39e71f13936f94371d0d96b5134b23b72adc6470  kazna075-overlay.tar.gz" | sha256sum -c -
           tar -xzf kazna075-overlay.tar.gz -C kazna
           grep "versionCode 75; versionName '0.7.5'" kazna/app/build.gradle
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("kazna/settings.gradle")
+          s=p.read_text()
+          if "jitpack.io" not in s:
+              s=s.replace("repositories { google(); mavenCentral() }","repositories { google(); mavenCentral(); maven { url 'https://jitpack.io' } }")
+          p.write_text(s)
+          PY
+          mkdir -p kazna/app/src/main/assets/tessdata
+          curl -L --fail --retry 3 -o kazna/app/src/main/assets/tessdata/rus.traineddata https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/rus.traineddata
+          curl -L --fail --retry 3 -o kazna/app/src/main/assets/tessdata/eng.traineddata https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata
+          test -s kazna/app/src/main/assets/tessdata/rus.traineddata
+          test -s kazna/app/src/main/assets/tessdata/eng.traineddata
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
