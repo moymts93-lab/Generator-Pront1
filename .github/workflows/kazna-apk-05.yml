@@ -1,4 +1,4 @@
-name: Build Kazna 0.7.2 APK
+name: Build Kazna 0.7.3 APK
 on:
   push:
     branches: [ "kazna-apk-05-build" ]
@@ -39,6 +39,12 @@ jobs:
           grep "text-recognition" kazna/app/build.gradle
           if grep -q '^android.useAndroidX=' kazna/gradle.properties; then sed -i 's/^android.useAndroidX=.*/android.useAndroidX=true/' kazna/gradle.properties; else echo 'android.useAndroidX=true' >> kazna/gradle.properties; fi
           grep '^android.useAndroidX=true' kazna/gradle.properties
+      - name: Apply 0.7.3 push/balance hotfix
+        run: |
+          echo "bd1cb87046140ee735d434206df1843d45c27920f9b5decd8fd047aeac859348  kazna073-hotfix.tar.gz" | sha256sum -c -
+          tar -xzf kazna073-hotfix.tar.gz -C kazna
+          sed -E -i "s/versionCode [0-9]+; versionName '[^']+'/versionCode 73; versionName '0.7.3'/" kazna/app/build.gradle
+          grep "versionCode 73; versionName '0.7.3'" kazna/app/build.gradle
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -59,12 +65,12 @@ jobs:
           chmod +x signer-tools/apksigner signer-tools/zipalign
       - uses: actions/upload-artifact@v4
         with:
-          name: android-signing-tools-072
+          name: android-signing-tools-073
           path: signer-tools
           retention-days: 1
       - uses: actions/upload-artifact@v4
         with:
-          name: kazna-0.7.2-unsigned
+          name: kazna-0.7.3-unsigned
           path: kazna/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 1
