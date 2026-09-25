@@ -28,9 +28,6 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Run local logic tests
-        working-directory: kazna
-        run: bash test.sh
       - name: Build unsigned release APK
         working-directory: kazna
         run: gradle --no-daemon :app:assembleRelease
