@@ -55,6 +55,12 @@ jobs:
       - name: Build unsigned release APK
         working-directory: kazna
         run: gradle --no-daemon :app:assembleRelease
+      - name: Align release APK
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          IN=$(find kazna/app/build/outputs/apk/release -name '*-unsigned.apk' | head -1)
+          "$BT/zipalign" -f -p 4 "$IN" kazna/app/build/outputs/apk/release/Kazna-0.7.3-aligned-unsigned.apk
+          "$BT/zipalign" -c -p 4 kazna/app/build/outputs/apk/release/Kazna-0.7.3-aligned-unsigned.apk
       - name: Export signing tools
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
@@ -71,6 +77,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: kazna-0.7.3-unsigned
-          path: kazna/app/build/outputs/apk/release/*.apk
+          path: kazna/app/build/outputs/apk/release/Kazna-0.7.3-aligned-unsigned.apk
           if-no-files-found: error
           retention-days: 1
