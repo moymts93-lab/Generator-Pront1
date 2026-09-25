@@ -2,6 +2,8 @@ name: Build Kazna 0.5 APK
 on:
   push:
     branches: [ "kazna-apk-05-build" ]
+  pull_request:
+    branches: [ "main" ]
 permissions:
   contents: read
 jobs:
