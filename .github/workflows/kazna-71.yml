@@ -25,24 +25,45 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Patch manual APK builder for 7.1
+      - name: Build aligned unsigned Kazna 7.1 APK
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          p=Path("kazna/build_apk.py")
-          s=p.read_text()
-          s=re.sub(r"BT=SDK/'build-tools/[^']+'", "BT=next((SDK/'build-tools'/v for v in ['35.0.1','35.0.0'] if (SDK/'build-tools'/v).is_dir()), SDK/'build-tools/35.0.0')", s)
-          s=re.sub(r"'--version-code','[^']+','--version-name','[^']+'", "'--version-code','71','--version-name','7.1'", s)
-          s=re.sub(r"apk=BUILD/'Kazna-[^']+\\.apk'", "apk=BUILD/'Kazna-7.1.apk'", s)
-          p.write_text(s)
+          cat > /tmp/build71.py <<'PY'
+          import os, pathlib, shutil, subprocess, sys, zipfile
+          ROOT=pathlib.Path("kazna").resolve()
+          SDK=pathlib.Path(os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or "")
+          BT=next((SDK/"build-tools"/v for v in ["35.0.1","35.0.0"] if (SDK/"build-tools"/v).is_dir()), None)
+          jars=list((SDK/"platforms/android-35").rglob("android.jar"))
+          if not jars or BT is None: sys.exit("Android SDK 35/build-tools missing")
+          ANDROID=jars[0]
+          PDFBOX=ROOT/"vendor/pdfbox/classes.jar"
+          ASSETS=ROOT/"vendor/pdfbox/assets"
+          LIBS=[PDFBOX]+list((ROOT/"vendor").glob("*.jar"))
+          BUILD=ROOT/"build/local-apk"
+          BUILD.mkdir(parents=True,exist_ok=True)
+          for name in ["classes","generated","dex"]:
+              p=BUILD/name
+              if p.exists(): shutil.rmtree(p)
+              p.mkdir()
+          def run(*args):
+              subprocess.run([str(x) for x in args],cwd=ROOT,check=True)
+          run(BT/"aapt2","compile","--dir",ROOT/"app/src/main/res","-o",BUILD/"resources.zip")
+          manifest=BUILD/"AndroidManifest.xml"
+          manifest.write_text((ROOT/"app/src/main/AndroidManifest.xml").read_text().replace("<manifest ","<manifest package=\"ru.kazna.app\" ",1))
+          run(BT/"aapt2","link","-I",ANDROID,"--manifest",manifest,"--java",BUILD/"generated","--min-sdk-version","26","--target-sdk-version","35","--version-code","71","--version-name","7.1","-o",BUILD/"base.apk",BUILD/"resources.zip","-A",ASSETS)
+          sources=list((ROOT/"app/src/main/java").rglob("*.java"))+list((BUILD/"generated").rglob("*.java"))
+          run("java","com.sun.tools.javac.Main","-encoding","UTF-8","--release","8","-classpath",os.pathsep.join(str(x) for x in [ANDROID]+LIBS),"-d",BUILD/"classes",*sources)
+          run(BT/"d8","--lib",ANDROID,"--min-api","26","--output",BUILD/"dex",*list((BUILD/"classes").rglob("*.class")),*LIBS)
+          shutil.copy2(BUILD/"base.apk",BUILD/"unsigned.apk")
+          with zipfile.ZipFile(BUILD/"unsigned.apk","a",zipfile.ZIP_DEFLATED) as z:
+              for dex in (BUILD/"dex").glob("*.dex"): z.write(dex,dex.name)
+          out=BUILD/"Kazna-7.1-unsigned-aligned.apk"
+          run(BT/"zipalign","-f","4",BUILD/"unsigned.apk",out)
+          print(out)
           PY
-      - name: Build and sign Kazna 7.1 APK
-        working-directory: kazna
-        run: python3 build_apk.py
+          python3 /tmp/build71.py
       - uses: actions/upload-artifact@v4
         with:
-          name: Kazna-7.1
-          path: kazna/build/local-apk/Kazna-7.1.apk
+          name: Kazna-7.1-unsigned-aligned
+          path: kazna/build/local-apk/Kazna-7.1-unsigned-aligned.apk
           if-no-files-found: error
           retention-days: 1
