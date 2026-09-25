@@ -1,4 +1,4 @@
-name: Kazna APK build
+name: Kazna release tools
 on:
   push:
     branches: [ kazna-apk-build ]
@@ -9,43 +9,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       - name: Download source
         run: |
           curl -fL -o /tmp/kazna.zip "https://kazna-build-host-20260925.floot.app/_cdn/static/5a526e82-2cf9-4fb2-a369-efa1fbdb08f2-Kazna-0.7.8-source.zip"
           mkdir kazna-src
           unzip -q /tmp/kazna.zip -d kazna-src
-          grep -n "versionName '0.7.8'" kazna-src/app/build.gradle
-      - name: Set up JDK
-        uses: actions/setup-java@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Set up Android
-        uses: android-actions/setup-android@v4
+      - uses: android-actions/setup-android@v4
         with:
           packages: ''
       - name: Install SDK 35
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Build APK
+      - name: Build unsigned release
         working-directory: kazna-src
-        run: gradle --no-daemon --stacktrace assembleDebug
-      - name: Verify APK
+        run: gradle --no-daemon --stacktrace assembleRelease
+      - name: Collect release and signer
         run: |
-          APK="kazna-src/app/build/outputs/apk/debug/app-debug.apk"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -20
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
-          cp "$APK" Kazna-0.7.8.apk
-          sha256sum Kazna-0.7.8.apk > Kazna-0.7.8.sha256
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+          set -eux
+          cp kazna-src/app/build/outputs/apk/release/app-release-unsigned.apk Kazna-0.7.8-unsigned.apk
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" apksigner-35.jar
+          sha256sum Kazna-0.7.8-unsigned.apk apksigner-35.jar > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
         with:
-          name: Kazna-0.7.8
+          name: Kazna-0.7.8-release-tools
           path: |
-            Kazna-0.7.8.apk
-            Kazna-0.7.8.sha256
+            Kazna-0.7.8-unsigned.apk
+            apksigner-35.jar
+            SHA256SUMS.txt
