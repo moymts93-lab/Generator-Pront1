@@ -24,6 +24,17 @@ jobs:
           curl -L --fail --retry 3 -o kazna/app/src/main/assets/tessdata/eng.traineddata https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata
           test -s kazna/app/src/main/assets/tessdata/rus.traineddata
           test -s kazna/app/src/main/assets/tessdata/eng.traineddata
+      - name: Fix Java 8 regex escapes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path("kazna/app/src/main/java/ru/kazna/app/CreditScreenshotParser.java")
+          s=p.read_text()
+          s=re.sub(r'(?<!\\)\\s', r'\\\\s', s)
+          p.write_text(s)
+          PY
+          grep -n "termMonths" kazna/app/src/main/java/ru/kazna/app/CreditScreenshotParser.java
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
